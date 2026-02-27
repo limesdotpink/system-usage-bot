@@ -1,77 +1,68 @@
 import "dotenv/config";
 import { createRestAPIClient } from "masto";
-import osu from "node-os-utils";
-
-const config = {
-    intro: "", // text that will prefix the stats in the toot
-    interval: 0, // time in seconds between toots (set to 0 if manually triggering or using crontab)
-    filledBarChar: "▰", // the character for the filled-in usage bar (can be an emoji)
-    emptyBarChar: "▱", // the character for the empty part of the usage bar (can also be an emoji)
-    barLength: 16, // number of characters used for the usage bar
-};
+import { OSUtils } from "node-os-utils";
 
 const masto = createRestAPIClient({
-    url: process.env.INSTANCE_URL,
-    accessToken: process.env.BOT_ACCESS_TOKEN,
+  url: process.env.INSTANCE_URL,
+  accessToken: process.env.BOT_ACCESS_TOKEN,
 });
 
 function usageBar(perc) {
-    const filledN = Math.round((perc / 100) * config.barLength);
-    const filled = config.filledBarChar.repeat(filledN);
-    const empty = config.emptyBarChar.repeat(config.barLength - filledN);
-    return filled + empty;
+  const filledN = Math.round((perc / 100) * 20);
+  return `${"▰".repeat(filledN)}${"▱".repeat(20 - filledN)} ${perc.toFixed(1)}%`;
+}
+
+function humanReadableTime(t) {
+  const up = new Date(t);
+  const upDays = up.getUTCDate() - 1;
+  const upHours = up.getUTCHours();
+  const upMinutes = up.getUTCMinutes();
+  const upSeconds = up.getUTCSeconds();
+
+  let h = "";
+  if (upDays) {
+    h += `${upDays} day${upDays !== 1 ? "s" : ""}, `;
+  }
+  if (upHours || upDays > 0) {
+    h += `${upHours} hour${upHours !== 1 ? "s" : ""}, `;
+  }
+  if (upMinutes || upHours + upDays > 0) {
+    h += `${upMinutes} minute${upMinutes !== 1 ? "s" : ""} and `;
+  }
+  h += `${upSeconds} second${upSeconds !== 1 ? "s" : ""}`;
+
+  return h;
 }
 
 async function toot() {
-    const cpu = await osu.cpu.usage();
-    const drive = await osu.drive.used();
-    const ram = await osu.mem.info();
-    const up = new Date((await osu.os.uptime()) * 1000);
+  const osutils = new OSUtils();
+  const overview = await osutils.overview();
 
-    const upDays = up.getUTCDate() - 1;
-    const upHours = up.getUTCHours();
-    const upMinutes = up.getUTCMinutes();
-    const upSeconds = up.getUTCSeconds();
+  const cpuAvg = overview.system.loadAverage.load5;
+  const memSumm = overview.memory;
+  const { data: diskSumm } = await osutils.disk.spaceOverview();
+  const uptime = humanReadableTime(overview.system.uptime);
 
-    let humanReadableUp = "";
-    if (upDays) {
-        let plural = upDays !== 1 ? "s" : "";
-        humanReadableUp += `${upDays} day${plural}, `;
-    }
-    if (upHours || upDays > 0) {
-        let plural = upHours !== 1 ? "s" : "";
-        humanReadableUp += `${upHours} hour${plural}, `;
-    }
-    if (upMinutes || upHours + upDays > 0) {
-        let plural = upMinutes !== 1 ? "s" : "";
-        humanReadableUp += `${upMinutes} minute${plural} and `;
-    }
-    let plural = upSeconds !== 1 ? "s" : "";
-    humanReadableUp += `${upSeconds} second${plural}`;
+  const tootArray = [];
 
-    const toot = `${config.intro ? `${config.intro}\n\n` : ""}CPU:\n${usageBar(
-        cpu
-    )} (${cpu.toFixed(1)}%)\n\nRAM: ${Math.round(ram.usedMemMb)}MB/${Math.round(
-        ram.totalMemMb
-    )}MB\n${usageBar(ram.usedMemPercentage)} (${ram.usedMemPercentage.toFixed(
-        1
-    )}%)\n\nDisk (/): ${drive.usedGb}GB/${drive.totalGb}GB\n${usageBar(
-        drive.usedPercentage
-    )} (${parseFloat(drive.usedPercentage).toFixed(
-        1
-    )}%)\n\nUptime: ${humanReadableUp}`;
+  tootArray.push(`CPU\n${usageBar(cpuAvg)}`);
 
-    const status = await masto.v1.statuses.create({
-        status: toot,
-        visibility: "public",
-    });
+  tootArray.push(
+    `RAM (${memSumm.used} / ${memSumm.total})\n${usageBar(memSumm.usagePercentage)}`,
+  );
 
-    console.log(`Tooted on ${new Date()}! ${status?.url}`);
+  tootArray.push(
+    `Disk (${diskSumm.used.toString()} / ${diskSumm.total.toString()})\n${usageBar(diskSumm.usagePercentage)}`,
+  );
+
+  tootArray.push(`Uptime\n${uptime}`);
+
+  const status = await masto.v1.statuses.create({
+    status: tootArray.join("\n\n"),
+    visibility: "public",
+  });
+
+  console.log(`Tooted on ${new Date()}! ${status?.url}`);
 }
 
-if (config.interval) {
-    toot();
-    setInterval(() => toot(), config.interval * 1000);
-} else {
-    toot();
-}
+toot();
