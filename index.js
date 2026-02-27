@@ -8,8 +8,8 @@ const masto = createRestAPIClient({
 });
 
 function usageBar(perc) {
-  const filledN = Math.round((perc / 100) * 20);
-  return `${"▰".repeat(filledN)}${"▱".repeat(20 - filledN)} ${perc.toFixed(1)}%`;
+  const filledN = Math.round((perc / 100) * 16);
+  return `${"▰".repeat(filledN)}${"▱".repeat(16 - filledN)} ${perc.toFixed(1)}%`;
 }
 
 function humanReadableTime(t) {
