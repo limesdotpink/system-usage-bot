@@ -1,0 +1,17 @@
+version: 2
+builds:
+  - id: "systemusagebot"
+    binary: systemusagebot
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - 386
+      - arm
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm
+        goarm: 6
