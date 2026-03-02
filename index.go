@@ -50,12 +50,18 @@ func main() {
 	samedrive, root, rerr, home, herr := getDiskInfo()
 	if rerr == nil {
 		rf, rt, rp := parseDiskUsage(root)
-		tootText += fmt.Sprintf("\n\nDisk (/): %s/%s\n", rf, rt)
-		tootText += progressBar(rp)
 
-		if !samedrive && herr == nil {
+		if samedrive || herr != nil {
+			tootText += fmt.Sprintf("\n\nDisk (/): %s/%s\n", rf, rt)
+			tootText += progressBar(rp)
+		} else {
+			tootText += "\n\nDisks:"
+			rf, rt, rp := parseDiskUsage(root)
+			tootText += fmt.Sprintf("\n/: %s/%s\n", rf, rt)
+			tootText += progressBar(rp)
+
 			hf, ht, rp := parseDiskUsage(home)
-			tootText += fmt.Sprintf("\nDisk (/home): %s/%s\n", hf, ht)
+			tootText += fmt.Sprintf("\n/home: %s/%s\n", hf, ht)
 			tootText += progressBar(rp)
 		}
 	}
@@ -75,7 +81,7 @@ func getDiskInfo() (bool, disk.Info, error, disk.Info, error) {
 }
 
 func parseDiskUsage(diskinfo disk.Info) (string, string, float64) {
-	return humanize.Bytes(diskinfo.Free), humanize.Bytes(diskinfo.Total), float64(diskinfo.Free) / float64(diskinfo.Total) * 100
+	return humanize.Bytes(diskinfo.Used), humanize.Bytes(diskinfo.Total), float64(diskinfo.Used) / float64(diskinfo.Total) * 100
 }
 
 // START CC BY-SA 3.0 https://stackoverflow.com/a/17783687
@@ -148,7 +154,7 @@ func progressBar(perc float64) string {
 	var bar string
 	r := int(math.Round(perc / 100 * barWidth))
 
-	bar = fmt.Sprintf("%s%s %.2f%%", strings.Repeat("▰", r), strings.Repeat("▱", int(barWidth)-r), perc)
+	bar = fmt.Sprintf("[%s%s] %.1f%%", strings.Repeat("￭", r), strings.Repeat("･", int(barWidth)-r), perc)
 
 	return bar
 }
