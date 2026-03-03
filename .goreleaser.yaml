@@ -3,7 +3,6 @@ builds:
   - id: "systemusagebot"
     binary: systemusagebot
     goos:
-      - darwin
       - linux
       - windows
     goarch:
