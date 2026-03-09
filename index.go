@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"math"
@@ -18,6 +19,13 @@ import (
 )
 
 func main() {
+	// cli flag business
+	fillchar := flag.String("fill", "￭", "the character used for the filled portion of the bar")
+	emptychar := flag.String("empty", "･", "the character used for the empty portion of the bar")
+	barlength := flag.Int("length", 20, "the total number of characers used to render the bar, excluding the frame")
+
+	flag.Parse()
+
 	host, err := sysinfo.Host()
 	var tootText string
 
@@ -31,7 +39,7 @@ func main() {
 	cu, cuerr := getCpuUsage()
 	if cuerr == nil {
 		tootText += "CPU\n"
-		tootText += progressBar(cu)
+		tootText += progressBar(cu, fillchar, emptychar, barlength)
 	} else {
 		fmt.Printf("CPU load unsupported (currently linux only)")
 	}
@@ -40,11 +48,11 @@ func main() {
 	if merr == nil {
 		memFree := meminfo.Total - meminfo.Available
 		tootText += fmt.Sprintf("\n\nRAM: %s/%s\n", humanize.Bytes(memFree), humanize.Bytes(meminfo.Total))
-		tootText += progressBar((float64(memFree) / float64(meminfo.Total) * 100))
+		tootText += progressBar((float64(memFree) / float64(meminfo.Total) * 100), fillchar, emptychar, barlength)
 
 		virtFree := meminfo.VirtualTotal - meminfo.VirtualFree
 		tootText += fmt.Sprintf("\nSwap: %s/%s\n", humanize.Bytes(virtFree), humanize.Bytes(meminfo.VirtualTotal))
-		tootText += progressBar((float64(virtFree) / float64(meminfo.VirtualTotal) * 100))
+		tootText += progressBar((float64(virtFree) / float64(meminfo.VirtualTotal) * 100), fillchar, emptychar, barlength)
 	}
 
 	samedrive, root, rerr, home, herr := getDiskInfo()
@@ -53,16 +61,16 @@ func main() {
 
 		if samedrive || herr != nil {
 			tootText += fmt.Sprintf("\n\nDisk (/): %s/%s\n", rf, rt)
-			tootText += progressBar(rp)
+			tootText += progressBar(rp, fillchar, emptychar, barlength)
 		} else {
 			tootText += "\n\nDisks:"
 			rf, rt, rp := parseDiskUsage(root)
 			tootText += fmt.Sprintf("\n/: %s/%s\n", rf, rt)
-			tootText += progressBar(rp)
+			tootText += progressBar(rp, fillchar, emptychar, barlength)
 
 			hf, ht, rp := parseDiskUsage(home)
 			tootText += fmt.Sprintf("\n/home: %s/%s\n", hf, ht)
-			tootText += progressBar(rp)
+			tootText += progressBar(rp, fillchar, emptychar, barlength)
 		}
 	}
 
@@ -149,12 +157,12 @@ func formatUptime(raw string) string {
 	return fmt.Sprintf("%dd, %dh, %dm, %ds", up.d, up.h, up.m, up.s)
 }
 
-func progressBar(perc float64) string {
-	var barWidth float64 = 20
+func progressBar(perc float64, fillchar *string, emptychar *string, barlength *int) string {
+	var barWidth float64 = float64(*barlength)
 	var bar string
 	r := int(math.Round(perc / 100 * barWidth))
 
-	bar = fmt.Sprintf("[%s%s] %.1f%%", strings.Repeat("￭", r), strings.Repeat("･", int(barWidth)-r), perc)
+	bar = fmt.Sprintf("[%s%s] %.1f%%", strings.Repeat(*fillchar, r), strings.Repeat(*emptychar, int(barWidth)-r), perc)
 
 	return bar
 }
